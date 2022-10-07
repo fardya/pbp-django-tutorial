@@ -1,27 +1,27 @@
-from django.shortcuts import render
-from wishlist.models import BarangWishlist
+import datetime
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 from django.http import HttpResponse
 from django.core import serializers
+from django.shortcuts import render
+from wishlist.models import BarangWishlist
 from django.shortcuts import redirect
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
-import datetime
-from django.http import HttpResponseRedirect
-from django.urls import reverse
-
-# Create your views here.
+from django.http.response import JsonResponse
+from django.views.decorators.csrf import csrf_protect
 
 @login_required(login_url='/wishlist/login/')
 def show_wishlist(request):
     data_barang_wishlist = BarangWishlist.objects.all()
     context = {
-    'list_barang': data_barang_wishlist,
-    'nama': 'Davina Fardya Zulfa Izzati',
-    'last_login': request.COOKIES['last_login'],
-   }
+        'list_barang': data_barang_wishlist,
+        'nama': 'Davina Fardya Zulfa Izzati',
+        'last_login': request.COOKIES['last_login'],
+    }
     return render(request, "wishlist.html", context)
 
 def show_xml(request):
@@ -32,17 +32,16 @@ def show_json(request):
     data = BarangWishlist.objects.all()
     return HttpResponse(serializers.serialize("json", data), content_type="application/json")
 
-def show_json_by_id(request, id):
-    data = BarangWishlist.objects.filter(pk=id)
-    return HttpResponse(serializers.serialize("json", data), content_type="application/json")
-
-def show_xml_by_id(request, id):
+def show_xml_by_id(request,id):
     data = BarangWishlist.objects.filter(pk=id)
     return HttpResponse(serializers.serialize("xml", data), content_type="application/xml")
 
+def show_json_by_id(request,id):
+    data = BarangWishlist.objects.filter(pk=id)
+    return HttpResponse(serializers.serialize("json", data), content_type="application/json")
+
 def register(request):
     form = UserCreationForm()
-
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -59,9 +58,9 @@ def login_user(request):
         password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
         if user is not None:
-            login(request, user) # melakukan login terlebih dahulu
-            response = HttpResponseRedirect(reverse("wishlist:show_wishlist")) # membuat response
-            response.set_cookie('last_login', str(datetime.datetime.now())) # membuat cookie last_login dan menambahkannya ke dalam response
+            login(request, user)
+            response = HttpResponseRedirect(reverse("wishlist:show_wishlist"))
+            response.set_cookie('last_login', str(datetime.datetime.now()))
             return response
         else:
             messages.info(request, 'Username atau Password salah!')
@@ -73,3 +72,26 @@ def logout_user(request):
     response = HttpResponseRedirect(reverse('wishlist:login'))
     response.delete_cookie('last_login')
     return response
+
+@login_required(login_url='/wishlist/login/')
+def show_wishlist_ajax(request):
+    data_barang_wishlist = BarangWishlist.objects.all()
+    context = {
+        'list_barang': data_barang_wishlist,
+        'nama': 'Davina Fardya Zulfa Izzati',
+        'last_login': request.COOKIES['last_login'],
+    }
+    return render(request, "wishlist_ajax.html", context)
+
+@login_required(login_url='/wishlist/login/')
+@csrf_protect
+def add_wishlist(request):
+    if request.method == "POST":
+        nama_barang = request.POST.get("nama")
+        harga_barang = request.POST.get("harga")
+        deskripsi_barang = request.POST.get("deskripsi")
+        wish = BarangWishlist.objects.create(nama_barang = nama_barang, harga_barang = harga_barang, deskripsi = deskripsi_barang)
+        wish.save()
+        return JsonResponse({'instance': 'Added to Wishlist'})
+    else:
+        return redirect("wishlist:show_wishlist")
